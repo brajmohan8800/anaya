@@ -88,7 +88,7 @@ async def call_gemini_with_fallback(prompt):
     return None, "all_keys_failed"
 
 # 🤖 Bot settings
-BOT_USERNAME = "@ohsdlkj_bot"
+BOT_USERNAME = "@anaya777bot"
 SPECIAL_USER_ID = 6107085261 # Add if needed
 
 # 📁 Sessions
@@ -363,9 +363,9 @@ def main():
         print("❌ Failed to initialize any API key!")
         return
 
-    TOKEN = "7764134009:AAHQrG7z4lvWKH4JGiq4I8b4Diz0mHJd9hM" # <-- YOUR NEW BOT TOKEN HERE
+    TOKEN = "7297293035:AAHgIV4q_dtaLIDC5X7ATQU0RTczB2VRGzI" # <-- YOUR NEW BOT TOKEN HERE
     global BOT_USERNAME
-    BOT_USERNAME = "@ohsdlkj_bot"
+    BOT_USERNAME = "@anaya777bot"
 
     app = Application.builder().token(TOKEN).build()
 
@@ -381,4 +381,5 @@ def main():
     app.run_polling()
 
 if __name__ == '__main__':
+
     main()
