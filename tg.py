@@ -8,6 +8,7 @@ import os
 from datetime import datetime, timedelta
 import traceback
 
+
 # 🔐 Multiple Gemini API Keys
 API_KEYS = [
     "AIzaSyCtzkhcb4iOUWwLIcQRLoqVLVQhAERMvvs",
@@ -149,8 +150,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "l": datetime.now().isoformat()  # last_active
     }
     
-    # Save session (agar file nahi hai to create karega)
-    import os, json
     os.makedirs("sessions", exist_ok=True)
     with open(session_file, "w") as f:
         json.dump(session_data, f)
@@ -170,9 +169,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-    with open(session_file, 'w', encoding='utf-8') as f:
-        json.dump(session_data, f, ensure_ascii=False)
-    
     msg = f"Hey {user.first_name}! 👋\nMain Anaya hoon...\nKya chal raha hai? 😊"
     await update.message.reply_text(msg)
 
@@ -206,7 +202,6 @@ def clean_expired_sessions():
         if filename.endswith(".json"):
             filepath = os.path.join("sessions", filename)
             try:
-                # Check last active time
                 with open(filepath, 'r', encoding='utf-8') as f:
                     session_data = json.load(f)
                 
@@ -216,37 +211,34 @@ def clean_expired_sessions():
             except:
                 expired_files.append(filepath)
     
-    # Remove expired sessions
     for filepath in expired_files:
         try:
             os.remove(filepath)
         except:
             pass
 
-# 🧠 Update conversation (minimal) - FIXED TYPO
+# 🧠 Update conversation (minimal)
 def update_conversation(user_id, user_msg, bot_msg):
     session_data = get_user_session(user_id)
-    if not session_data:  # ✅ Fixed typo
+    if not session_data:
         return False
     
-    # Update last active
     session_data["l"] = datetime.now().isoformat()
     
-    # Add conversation (max 8)
     session_data["c"].append([user_msg, bot_msg])
     if len(session_data["c"]) > 8:
         session_data["c"].pop(0)
     
     return save_user_session(user_id, session_data)
 
-# 🧠 Get context (minimal)
+# 🧠 Get context
 def get_context(user_id):
     session_data = get_user_session(user_id)
     if not session_data or not session_data["c"]:
         return ""
     
     context = "\n"
-    for user_text, bot_text in session_data["c"][-4:]:  # Last 4
+    for user_text, bot_text in session_data["c"][-4:]:
         context += f"U: {user_text}\nA: {bot_text}\n"
     
     return context
@@ -256,26 +248,20 @@ def should_respond(update: Update):
     if not update.message:
         return False, "no_message"
     
-    # Private chat - always respond
     if update.effective_chat.type == "private":
         return True, "private"
     
     message = update.message
     
-    # Text message checks
     if message.text:
         text = message.text.lower()
-        # Mention
         if BOT_USERNAME.lower() in text:
             return True, "mention"
-        # Reply
-        if message.reply_to_message and message.reply_to_message.from_user.id == message._bot.id:
+        if message.reply_to_message and message.reply_to_message.from_user.id == message.get_bot().id:
             return True, "reply"
-        # Random chance
         if random.randint(1, 100) <= 20:
             return True, "random"
     
-    # Media message - 10% chance
     elif message.sticker or message.photo:
         if random.randint(1, 100) <= 10:
             return True, "media"
@@ -296,15 +282,13 @@ def get_meme_response():
     ]
     return random.choice(responses)
 
-# 💬 Handle text messages with improved error handling
+# 💬 Handle text messages
 async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_message = update.message.text.strip()
     
-    # Remove bot mention
     clean_msg = user_message.replace(BOT_USERNAME, "").replace(BOT_USERNAME.lower(), "").strip()
     
-    # Abusive check
     abusive_words = ['mah', 'bhen', 'chut', 'lund', 'gaand', 'madar', 'bhosdi', 'chutiya', 'bsdk']
     if any(word in user_message.lower() for word in abusive_words) and random.randint(1, 100) <= 70:
         reply = random.choice(get_sexy_gali_responses())
@@ -312,14 +296,11 @@ async def handle_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE
         update_conversation(user.id, user_message, reply)
         return
     
-    # Typing indicator
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
     
     try:
-        # Get context
         context_text = get_context(user.id)
         
-        # Build prompt
         prompt = f"""{get_personality_prompt(user.first_name)}
 
 {context_text}
@@ -328,7 +309,6 @@ Current:
 U: {clean_msg}
 A:"""
         
-        # Call API with fallback support
         response_text, status = await call_gemini_with_fallback(prompt)
         
         if status == "success" and response_text:
@@ -336,7 +316,6 @@ A:"""
             if len(reply) > 250:
                 reply = reply[:247] + "..."
         elif status == "all_keys_failed":
-            # When all API keys are exhausted
             replies = [
                 "😔 Sab API keys khatam ho gayi hain... kal fir try karo!",
                 "💔 Free quota khatam... kal fresh keys milengi!",
@@ -345,7 +324,6 @@ A:"""
             ]
             reply = random.choice(replies)
         else:
-            # Other fallback responses
             replies = [
                 "😅 Kya bol rahe ho? Clear batao!",
                 "😊 Samajh nahi aaya... phir se?",
@@ -371,10 +349,8 @@ async def handle_media_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # 💬 Main message handler
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Clean expired sessions
     clean_expired_sessions()
     
-    # Check if should respond
     should_respond_result, response_type = should_respond(update)
     
     if not should_respond_result:
@@ -383,7 +359,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             return
     
-    # Handle based on message type
     if update.message.text:
         await handle_text_message(update, context)
     elif update.message.sticker or update.message.photo:
@@ -398,7 +373,6 @@ async def pic(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # 🚀 Start bot
 def main():
-    # Initialize Gemini
     if not initialize_gemini():
         print("❌ Failed to initialize any API key!")
         return
@@ -409,12 +383,10 @@ def main():
     
     app = Application.builder().token(TOKEN).build()
     
-    # Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("profile", profile))
     app.add_handler(CommandHandler("pic", pic))
     
-    # Message handlers
     app.add_handler(MessageHandler(
         (filters.TEXT | filters.Sticker.ALL | filters.PHOTO) & ~filters.COMMAND, 
         handle_message
@@ -423,5 +395,5 @@ def main():
     print("💕 Anaya Multi-API Bot Starting...")
     app.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
